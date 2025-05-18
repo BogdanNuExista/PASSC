@@ -1,0 +1,15 @@
+javac .\MyReverseEngineeringTool.java
+
+java MyReverseEngineeringTool TempSensor.jar -format yuml -ignore java.util,java.lang -methods -attributes -qualified -output diagram_yuml.txt
+
+java MyReverseEngineeringTool TempSensor.jar -format plantuml -ignore java.util,java.lang -methods -attributes -qualified -output diagram_plantuml.txt
+
+
+
+
+
+javac .\MyReverseEngineeringTool.java
+
+java MyReverseEngineeringTool EventNotifier.jar -format yuml -ignore java.util,java.lang -methods -attributes -qualified -output diagram_yuml.txt
+
+java MyReverseEngineeringTool EventNotifier.jar -format plantuml -ignore java.util,java.lang -methods -attributes -qualified -output diagram_plantuml.txt

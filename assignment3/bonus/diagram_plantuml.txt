@@ -1,0 +1,98 @@
+@startuml
+class "CriticalFaultFilter" {
+  apply()
+}
+
+class "StatusEvent" {
+  -status: String
+  -source: String
+}
+
+class "Router" {
+  triggerPublication()
+}
+
+class "ErrorLogger" {
+  inform()
+}
+
+class "Hub" {
+  triggerPublication()
+}
+
+class "EventService" {
+  -eventClass: Class of ?
+  -subscriptions: List of Subscription
+  -singleton: EventService
+  unsubscribe()
+  subscribe()
+  instance()
+  publish()
+}
+
+interface "Subscriber" {
+  inform()
+}
+
+interface "Event" {
+}
+
+class "StatusConsole" {
+  inform()
+}
+
+class "Subscription" {
+  -eventType: Class of ?
+  -filter: Filter
+  -subscriber: Subscriber
+}
+
+class "FaultEvent" {
+  -CRITICAL: int
+  -MODERATE: int
+  -LOW: int
+  -severity: int
+  -source: String
+}
+
+interface "Filter" {
+  apply()
+}
+
+interface "ManagementEvent" {
+}
+
+class "PagingSystem" {
+  inform()
+}
+
+class "Main" {
+  main()
+}
+
+class "InvalidEventTypeException" {
+}
+
+
+' Relationships
+"EventService" ..> "Subscriber"
+"ErrorLogger" ..> "Event"
+"Subscriber" <|.. "PagingSystem"
+"EventService" --> "Subscription"
+"Subscription" --> "Subscriber"
+"Subscriber" <|.. "ErrorLogger"
+"ManagementEvent" <|.. "FaultEvent"
+"Subscription" --> "Filter"
+"Hub" ..> "Event"
+"EventService" ..> "Filter"
+"CriticalFaultFilter" ..> "Event"
+"EventService" --> "EventService"
+"ManagementEvent" <|.. "StatusEvent"
+"PagingSystem" ..> "Event"
+"EventService" ..> "Event"
+"StatusConsole" ..> "Event"
+"Router" ..> "Event"
+"Filter" <|.. "CriticalFaultFilter"
+"Event" <|.. "ManagementEvent"
+"Subscriber" <|.. "StatusConsole"
+@enduml

@@ -1,0 +1,58 @@
+=== Class Diagram ===
+
+Class: AverageDisplay
+Fields:
+  float sum
+  int count
+Methods:
+  update(int)
+  display()
+
+Interface: Subject
+Fields:
+Methods:
+  attach(Observer)
+  detach(Observer)
+  notifyObservers()
+
+Class: NumericDisplay
+Fields:
+  int value
+Methods:
+  update(int)
+  display()
+
+Class: MainDriver
+Fields:
+Methods:
+  main(String[])
+
+Class: TextDisplay
+Fields:
+  int value
+Methods:
+  update(int)
+  display()
+
+Interface: Observer
+Fields:
+Methods:
+  update(int)
+
+Class: TemperatureSensor
+Fields:
+  ArrayList<Observer> observers
+  int tempState
+Methods:
+  attach(Observer)
+  detach(Observer)
+  notifyObservers()
+  setTemp(int)
+  getTemp()
+
+=== Relationships ===
+TemperatureSensor implements Subject
+TemperatureSensor dependency, association Observer
+TextDisplay implements Observer
+NumericDisplay implements Observer
+AverageDisplay implements Observer
