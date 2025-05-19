@@ -2,42 +2,7 @@ import RequestReply.*;
 import MessageMarshaller.*;
 import Registry.*;
 
-class InfoTransformer implements ByteStreamTransformer {
-    private InfoService service;
-
-    public InfoTransformer(InfoService s) {
-        service = s;
-    }
-
-    public byte[] transform(byte[] in) {
-        Message requestMsg;
-        Marshaller m = new Marshaller();
-        requestMsg = m.unmarshal(in);
-
-        // Parse the request format: operation:param
-        String data = requestMsg.data;
-        String operation = data.substring(0, data.indexOf(":"));
-        String param = data.substring(data.indexOf(":")+1);
-        
-        Message responseMsg;
-        
-        if (operation.equals("get_road_info")) {
-            int roadId = Integer.parseInt(param);
-            String roadInfo = service.get_road_info(roadId);
-            responseMsg = new Message("InfoServer", roadInfo);
-        } else if (operation.equals("get_temp")) {
-            String city = param;
-            String temp = service.get_temp(city);
-            responseMsg = new Message("InfoServer", temp);
-        } else {
-            responseMsg = new Message("InfoServer", "Unknown operation");
-        }
-
-        return m.marshal(responseMsg);
-    }
-}
-
-class InfoService {
+class InfoService implements IInfoService {
     public String get_road_info(int road_ID) {
         // Simple implementation
         switch(road_ID) {
@@ -63,7 +28,11 @@ public class InfoServer {
     public static void main(String args[]) {
         new Configuration();
         
-        ByteStreamTransformer transformer = new InfoTransformer(new InfoService());
+        // Create service object
+        InfoService service = new InfoService();
+        
+        // Use the generic server proxy instead of a custom transformer
+        ByteStreamTransformer transformer = new GenericServerProxy(service);
         
         Entry myAddr = new Entry("localhost", 9001);
         Registry.instance().put("InfoServer", myAddr);

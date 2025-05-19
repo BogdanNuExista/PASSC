@@ -2,44 +2,7 @@ import RequestReply.*;
 import MessageMarshaller.*;
 import Registry.*;
 
-class MathTransformer implements ByteStreamTransformer {
-    private MathService service;
-
-    public MathTransformer(MathService s) {
-        service = s;
-    }
-
-    public byte[] transform(byte[] in) {
-        Message requestMsg;
-        Marshaller m = new Marshaller();
-        requestMsg = m.unmarshal(in);
-
-        // Parse the request format: operation:param1,param2
-        String data = requestMsg.data;
-        String operation = data.substring(0, data.indexOf(":"));
-        String params = data.substring(data.indexOf(":")+1);
-        
-        Message responseMsg;
-        
-        if (operation.equals("do_add")) {
-            String[] values = params.split(",");
-            float a = Float.parseFloat(values[0]);
-            float b = Float.parseFloat(values[1]);
-            float result = service.do_add(a, b);
-            responseMsg = new Message("MathServer", String.valueOf(result));
-        } else if (operation.equals("do_sqr")) {
-            float a = Float.parseFloat(params);
-            float result = service.do_sqr(a);
-            responseMsg = new Message("MathServer", String.valueOf(result));
-        } else {
-            responseMsg = new Message("MathServer", "Unknown operation");
-        }
-
-        return m.marshal(responseMsg);
-    }
-}
-
-class MathService {
+class MathService implements IMathService {
     public float do_add(float a, float b) {
         return a + b;
     }
@@ -53,7 +16,11 @@ public class MathServer {
     public static void main(String args[]) {
         new Configuration();
         
-        ByteStreamTransformer transformer = new MathTransformer(new MathService());
+        // Create service object
+        MathService service = new MathService();
+        
+        // Use the generic server proxy instead of a custom transformer
+        ByteStreamTransformer transformer = new GenericServerProxy(service);
         
         Entry myAddr = new Entry("localhost", 9002);
         Registry.instance().put("MathServer", myAddr);

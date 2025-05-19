@@ -1,0 +1,33 @@
+# Ignore compiled Java class files
+*.class
+
+# Ignore build directories
+/bin/
+/target/
+/build/
+
+# Ignore IntelliJ IDEA specific files
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Ignore Eclipse specific files
+.classpath
+.project
+.settings/
+
+# Ignore VS Code specific files
+.vscode/
+
+# Ignore Maven specific files
+target/
+
+# Ignore Gradle specific files
+.gradle/
+build/
+
+# Ignore package files
+*.jar
+*.war
+*.ear
