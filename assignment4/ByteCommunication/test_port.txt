@@ -1,0 +1,5 @@
+netstat -ano | findstr 9001
+
+taskkill /F /PID 16036
+
+taskkill /F /PID 15848
