@@ -1,3 +1,5 @@
+package bonus;
+
 import org.w3c.dom.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -5,23 +7,34 @@ import java.util.*;
 
 public class ClassGenerator {
     private Map<String, Element> namedComplexTypes;
+    private Map<String, Element> namedElements;
     private Map<String, ClassInfo> classInfoMap;
     private Queue<ClassInfo> queue;
     private Set<String> generatedClasses;
 
-    public ClassGenerator(Map<String, Element> namedComplexTypes) {
+    public ClassGenerator(Map<String, Element> namedComplexTypes, Map<String, Element> namedElements) {
         this.namedComplexTypes = namedComplexTypes;
+        this.namedElements = namedElements;
         this.classInfoMap = new HashMap<>();
         this.queue = new LinkedList<>();
         this.generatedClasses = new HashSet<>();
     }
 
-    public void generateClass(String className, Element complexTypeElement) {
+    public String generateClassName(Element element) {
+        String name = element.getAttribute("name");
+        if (!name.isEmpty()) {
+            return capitalize(name);
+        }
+        return "GeneratedClass";
+    }
+
+    public void generateClass(String className, Element element) {
         if (generatedClasses.contains(className)) {
             return;
         }
 
-        ClassInfo classInfo = new ClassInfo(className, complexTypeElement);
+        Element typeElement = resolveType(element);
+        ClassInfo classInfo = new ClassInfo(className, typeElement);
         classInfoMap.put(className, classInfo);
         queue.add(classInfo);
 
@@ -30,16 +43,38 @@ public class ClassGenerator {
             if (generatedClasses.contains(current.className)) {
                 continue;
             }
-            processComplexType(current);
+            processType(current);
             generateJavaFile(current);
             generatedClasses.add(current.className);
         }
     }
 
-    private void processComplexType(ClassInfo classInfo) {
+    private Element resolveType(Element element) {
+        String typeName = element.getAttribute("type");
+        if (!typeName.isEmpty() && namedComplexTypes.containsKey(typeName)) {
+            return namedComplexTypes.get(typeName);
+        }
+
+        NodeList children = element.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                Element childElem = (Element) child;
+                if (getLocalTag(childElem.getTagName()).equals("complexType")) {
+                    return childElem;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void processType(ClassInfo classInfo) {
+        if (classInfo.typeElement == null) {
+            return;
+        }
+
         List<Field> fields = new ArrayList<>();
-        Element complexTypeElement = classInfo.complexTypeElement;
-        NodeList children = complexTypeElement.getChildNodes();
+        NodeList children = classInfo.typeElement.getChildNodes();
 
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
@@ -80,39 +115,36 @@ public class ClassGenerator {
         boolean isList = "unbounded".equals(maxOccurs) || 
                         (!maxOccurs.isEmpty() && Integer.parseInt(maxOccurs) > 1);
 
-        Element nestedComplexType = null;
-        NodeList children = element.getChildNodes();
-        for (int i = 0; i < children.getLength(); i++) {
-            Node child = children.item(i);
-            if (child.getNodeType() == Node.ELEMENT_NODE) {
-                Element childElem = (Element) child;
-                String localTag = getLocalTag(childElem.getTagName());
-                if (localTag.equals("complexType")) {
-                    nestedComplexType = childElem;
-                    break;
-                }
-            }
-        }
-
         String fieldType;
-        if (nestedComplexType != null) {
-            fieldType = capitalize(fieldName);
-            if (!generatedClasses.contains(fieldType) && !classInfoMap.containsKey(fieldType)) {
-                ClassInfo nestedClass = new ClassInfo(fieldType, nestedComplexType);
-                classInfoMap.put(fieldType, nestedClass);
+        Element nestedType = resolveType(element);
+
+        if (nestedType != null) {
+            String nestedClassName = generateClassNameForNested(fieldName, parentClassName);
+            if (!generatedClasses.contains(nestedClassName) && !classInfoMap.containsKey(nestedClassName)) {
+                ClassInfo nestedClass = new ClassInfo(nestedClassName, nestedType);
+                classInfoMap.put(nestedClassName, nestedClass);
                 queue.add(nestedClass);
             }
+            fieldType = nestedClassName;
         } else if (!typeAttr.isEmpty()) {
-            fieldType = mapXsdTypeToJava(typeAttr);
-            if (fieldType == null) {
-                fieldType = capitalize(typeAttr);
-                if (namedComplexTypes.containsKey(typeAttr) && 
-                    !generatedClasses.contains(fieldType) && 
-                    !classInfoMap.containsKey(fieldType)) {
-                    ClassInfo namedClass = new ClassInfo(fieldType, namedComplexTypes.get(typeAttr));
-                    classInfoMap.put(fieldType, namedClass);
+            if (namedComplexTypes.containsKey(typeAttr)) {
+                String namedClassName = capitalize(typeAttr);
+                if (!generatedClasses.contains(namedClassName) && !classInfoMap.containsKey(namedClassName)) {
+                    ClassInfo namedClass = new ClassInfo(namedClassName, namedComplexTypes.get(typeAttr));
+                    classInfoMap.put(namedClassName, namedClass);
                     queue.add(namedClass);
                 }
+                fieldType = namedClassName;
+            } else if (namedElements.containsKey(typeAttr)) {
+                String namedElementClassName = capitalize(typeAttr);
+                if (!generatedClasses.contains(namedElementClassName) && !classInfoMap.containsKey(namedElementClassName)) {
+                    ClassInfo namedClass = new ClassInfo(namedElementClassName, namedElements.get(typeAttr));
+                    classInfoMap.put(namedElementClassName, namedClass);
+                    queue.add(namedClass);
+                }
+                fieldType = namedElementClassName;
+            } else {
+                fieldType = mapXsdTypeToJava(typeAttr);
             }
         } else {
             fieldType = "String";
@@ -123,6 +155,10 @@ public class ClassGenerator {
         }
 
         return new Field(fieldName, fieldType, isList);
+    }
+
+    private String generateClassNameForNested(String fieldName, String parentClassName) {
+        return parentClassName + "_" + capitalize(fieldName);
     }
 
     private Field processAttribute(Element attribute) {
