@@ -51,8 +51,15 @@ public class ClassGenerator {
 
     private Element resolveType(Element element) {
         String typeName = element.getAttribute("type");
-        if (!typeName.isEmpty() && namedComplexTypes.containsKey(typeName)) {
-            return namedComplexTypes.get(typeName);
+        if (!typeName.isEmpty()) {
+            // Strip namespace prefix if present
+            if (typeName.contains(":")) {
+                typeName = typeName.substring(typeName.indexOf(':') + 1);
+            }
+            
+            if (namedComplexTypes.containsKey(typeName)) {
+                return namedComplexTypes.get(typeName);
+            }
         }
 
         NodeList children = element.getChildNodes();
@@ -119,30 +126,46 @@ public class ClassGenerator {
         Element nestedType = resolveType(element);
 
         if (nestedType != null) {
-            String nestedClassName = generateClassNameForNested(fieldName, parentClassName);
-            if (!generatedClasses.contains(nestedClassName) && !classInfoMap.containsKey(nestedClassName)) {
-                ClassInfo nestedClass = new ClassInfo(nestedClassName, nestedType);
-                classInfoMap.put(nestedClassName, nestedClass);
-                queue.add(nestedClass);
+            // Handle named complex types directly
+            if (namedComplexTypes.containsValue(nestedType)) {
+                String typeName = getTypeName(nestedType);
+                fieldType = capitalize(typeName);
+                
+                if (!generatedClasses.contains(fieldType) && !classInfoMap.containsKey(fieldType)) {
+                    ClassInfo namedClass = new ClassInfo(fieldType, nestedType);
+                    classInfoMap.put(fieldType, namedClass);
+                    queue.add(namedClass);
+                }
+            } else {
+                // Handle anonymous types with nested naming
+                String nestedClassName = generateClassNameForNested(fieldName, parentClassName);
+                if (!generatedClasses.contains(nestedClassName) && !classInfoMap.containsKey(nestedClassName)) {
+                    ClassInfo nestedClass = new ClassInfo(nestedClassName, nestedType);
+                    classInfoMap.put(nestedClassName, nestedClass);
+                    queue.add(nestedClass);
+                }
+                fieldType = nestedClassName;
             }
-            fieldType = nestedClassName;
         } else if (!typeAttr.isEmpty()) {
+            // Strip namespace prefix if present
+            if (typeAttr.contains(":")) {
+                typeAttr = typeAttr.substring(typeAttr.indexOf(':') + 1);
+            }
+            
             if (namedComplexTypes.containsKey(typeAttr)) {
-                String namedClassName = capitalize(typeAttr);
-                if (!generatedClasses.contains(namedClassName) && !classInfoMap.containsKey(namedClassName)) {
-                    ClassInfo namedClass = new ClassInfo(namedClassName, namedComplexTypes.get(typeAttr));
-                    classInfoMap.put(namedClassName, namedClass);
+                fieldType = capitalize(typeAttr);
+                if (!generatedClasses.contains(fieldType) && !classInfoMap.containsKey(fieldType)) {
+                    ClassInfo namedClass = new ClassInfo(fieldType, namedComplexTypes.get(typeAttr));
+                    classInfoMap.put(fieldType, namedClass);
                     queue.add(namedClass);
                 }
-                fieldType = namedClassName;
             } else if (namedElements.containsKey(typeAttr)) {
-                String namedElementClassName = capitalize(typeAttr);
-                if (!generatedClasses.contains(namedElementClassName) && !classInfoMap.containsKey(namedElementClassName)) {
-                    ClassInfo namedClass = new ClassInfo(namedElementClassName, namedElements.get(typeAttr));
-                    classInfoMap.put(namedElementClassName, namedClass);
+                fieldType = capitalize(typeAttr);
+                if (!generatedClasses.contains(fieldType) && !classInfoMap.containsKey(fieldType)) {
+                    ClassInfo namedClass = new ClassInfo(fieldType, namedElements.get(typeAttr));
+                    classInfoMap.put(fieldType, namedClass);
                     queue.add(namedClass);
                 }
-                fieldType = namedElementClassName;
             } else {
                 fieldType = mapXsdTypeToJava(typeAttr);
             }
@@ -155,6 +178,16 @@ public class ClassGenerator {
         }
 
         return new Field(fieldName, fieldType, isList);
+    }
+
+    private String getTypeName(Element complexType) {
+        // Find the name of a complexType by searching our map
+        for (Map.Entry<String, Element> entry : namedComplexTypes.entrySet()) {
+            if (entry.getValue() == complexType) {
+                return entry.getKey();
+            }
+        }
+        return "UnknownType";
     }
 
     private String generateClassNameForNested(String fieldName, String parentClassName) {
@@ -172,6 +205,8 @@ public class ClassGenerator {
     }
 
     private String mapXsdTypeToJava(String xsdType) {
+        if (xsdType == null || xsdType.isEmpty()) return "String";
+        
         String type = xsdType.contains(":") ? 
                      xsdType.substring(xsdType.indexOf(':') + 1) : 
                      xsdType;
@@ -180,8 +215,9 @@ public class ClassGenerator {
             case "float": return "float";
             case "double": return "double";
             case "integer": return "int";
+            case "int": return "int";
             case "boolean": return "boolean";
-            default: return null;
+            default: return "String";
         }
     }
 

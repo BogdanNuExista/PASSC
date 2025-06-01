@@ -3,8 +3,8 @@ package bonus;
 public class TestBooks {
     public static void main(String[] args) {
         try {
-            // Generate classes from schema
-            SchemaToJava.main(new String[]{"books.xsd"});
+            // Generate classes from schema if not already generated
+            // SchemaToJava.main(new String[]{"books.xsd"});
             
             // Load test data
             BookShop shop = MyXMLDataBinder.CreateObjectFromXMLfile("books1.xml", BookShop.class);
