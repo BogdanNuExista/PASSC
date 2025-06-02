@@ -1,7 +1,7 @@
 import org.w3c.dom.*;
 import javax.xml.parsers.*;
 import java.io.File;
-import java.io.IOException;
+// import java.io.IOException;
 import java.util.*;
 
 public class SchemaToJava {

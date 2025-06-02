@@ -39,7 +39,7 @@ public class MyXMLDataBinder {
             if (node.getNodeType() == Node.ELEMENT_NODE) {
                 Element child = (Element) node;
                 String tagName = child.getTagName();
-                childElements.computeIfAbsent(tagName, k -> new ArrayList<>()).add(child);
+                childElements.computeIfAbsent(tagName, _ -> new ArrayList<>()).add(child);
             }
         }
         
