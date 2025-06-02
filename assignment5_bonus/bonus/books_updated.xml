@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<BookShop>
+  <book>
+    <author>
+      <name>Ron</name>
+      <surname>Rockson</surname>
+      <cv>Expert in life sciences</cv>
+    </author>
+    <author>
+      <name>Sam</name>
+      <surname>Smith</surname>
+      <cv>Explorer</cv>
+    </author>
+    <title>Updated Book Title</title>
+    <price>150.0</price>
+    <description>A revolutionary new theory</description>
+    <id>BS1</id>
+  </book>
+  <book>
+    <author>
+      <name>Tom</name>
+      <surname>Timberland</surname>
+      <cv>Professor of Tralalogy</cv>
+    </author>
+    <title>All about Tralalogy</title>
+    <price>150.0</price>
+    <description>A comprehensive guide on the subject</description>
+    <id>BS2</id>
+  </book>
+</BookShop>

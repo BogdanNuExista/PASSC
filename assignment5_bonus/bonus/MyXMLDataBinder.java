@@ -31,24 +31,54 @@ public class MyXMLDataBinder {
 
         // Process child elements
         NodeList children = element.getChildNodes();
+        Map<String, List<Element>> childElements = new HashMap<>();
+        
+        // Group elements by tag name
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
             if (node.getNodeType() == Node.ELEMENT_NODE) {
                 Element child = (Element) node;
-                String fieldName = child.getTagName();
-                Field field = getField(clazz, fieldName);
+                String tagName = child.getTagName();
+                childElements.computeIfAbsent(tagName, k -> new ArrayList<>()).add(child);
+            }
+        }
+        
+        // Process grouped elements
+        for (Map.Entry<String, List<Element>> entry : childElements.entrySet()) {
+            String fieldName = entry.getKey();
+            List<Element> elements = entry.getValue();
+            Field field = getField(clazz, fieldName);
+            
+            if (field == null) continue;
+            field.setAccessible(true); // Make field accessible
+            
+            Class<?> fieldType = field.getType();
+            
+            if (List.class.isAssignableFrom(fieldType)) {
+                // Handle list fields
+                List<Object> list = new ArrayList<>();
+                ParameterizedType listType = (ParameterizedType) field.getGenericType();
+                Class<?> itemClass = (Class<?>) listType.getActualTypeArguments()[0];
                 
-                if (field == null) continue;
-                
-                Class<?> fieldType = field.getType();
+                for (Element elem : elements) {
+                    Object item;
+                    if (isPrimitiveOrWrapper(itemClass)) {
+                        item = getSimpleValue(elem, itemClass);
+                    } else {
+                        item = unmarshal(elem, itemClass);
+                    }
+                    list.add(item);
+                }
+                field.set(obj, list);
+            } else {
+                // Handle single fields
+                Element elem = elements.get(0); // Take first element
                 Object value;
                 
-                if (List.class.isAssignableFrom(fieldType)) {
-                    value = handleListField(child, field);
-                } else if (fieldType.getName().startsWith("java.lang")) {
-                    value = getSimpleValue(child, fieldType);
+                if (isPrimitiveOrWrapper(fieldType)) {
+                    value = getSimpleValue(elem, fieldType);
                 } else {
-                    value = unmarshal(child, fieldType);
+                    value = unmarshal(elem, fieldType);
                 }
                 
                 field.set(obj, value);
@@ -57,28 +87,16 @@ public class MyXMLDataBinder {
         return obj;
     }
 
-    private static Object handleListField(Element listElement, Field field) throws Exception {
-        ParameterizedType listType = (ParameterizedType) field.getGenericType();
-        Class<?> itemClass = (Class<?>) listType.getActualTypeArguments()[0];
-        List<Object> list = new ArrayList<>();
-        
-        NodeList children = listElement.getChildNodes();
-        for (int i = 0; i < children.getLength(); i++) {
-            Node node = children.item(i);
-            if (node.getNodeType() == Node.ELEMENT_NODE) {
-                Element child = (Element) node;
-                Object item;
-                
-                if (itemClass.getName().startsWith("java.lang")) {
-                    item = getSimpleValue(child, itemClass);
-                } else {
-                    item = unmarshal(child, itemClass);
-                }
-                
-                list.add(item);
-            }
-        }
-        return list;
+    private static boolean isPrimitiveOrWrapper(Class<?> type) {
+        return type.isPrimitive() || 
+               type == String.class ||
+               type == Integer.class ||
+               type == Float.class ||
+               type == Double.class ||
+               type == Boolean.class ||
+               type == Long.class ||
+               type == Short.class ||
+               type == Byte.class;
     }
 
     private static Object getSimpleValue(Element element, Class<?> type) {
@@ -88,6 +106,7 @@ public class MyXMLDataBinder {
         if (type == float.class || type == Float.class) return Float.parseFloat(text);
         if (type == double.class || type == Double.class) return Double.parseDouble(text);
         if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(text);
+        if (type == long.class || type == Long.class) return Long.parseLong(text);
         return text;
     }
 
@@ -99,22 +118,30 @@ public class MyXMLDataBinder {
         Element rootElement = doc.createElement(rootElementName);
         doc.appendChild(rootElement);
         
-        marshal(object, rootElement, doc);
+        marshal(object, rootElement, doc, new HashSet<>());
         
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
         
         DOMSource source = new DOMSource(doc);
         StreamResult result = new StreamResult(new File(xmlFile));
         transformer.transform(source, result);
     }
 
-    private static void marshal(Object object, Element parent, Document doc) throws Exception {
+    private static void marshal(Object object, Element parent, Document doc, Set<Object> visited) throws Exception {
+        if (object == null || visited.contains(object)) {
+            return; // Prevent infinite recursion
+        }
+        
+        visited.add(object);
+        
         Class<?> clazz = object.getClass();
         Field[] fields = clazz.getDeclaredFields();
         
         for (Field field : fields) {
+            field.setAccessible(true); // Make field accessible
             Object value = field.get(object);
             if (value == null) continue;
             
@@ -122,30 +149,36 @@ public class MyXMLDataBinder {
                 List<?> list = (List<?>) value;
                 for (Object item : list) {
                     Element element = doc.createElement(field.getName());
-                    if (item.getClass().getName().startsWith("java.lang")) {
+                    if (isPrimitiveOrWrapper(item.getClass())) {
                         element.setTextContent(item.toString());
                     } else {
-                        marshal(item, element, doc);
+                        Set<Object> childVisited = new HashSet<>(visited);
+                        marshal(item, element, doc, childVisited);
                     }
                     parent.appendChild(element);
                 }
-            } else if (field.getType().getName().startsWith("java.lang")) {
+            } else if (isPrimitiveOrWrapper(field.getType())) {
                 Element element = doc.createElement(field.getName());
                 element.setTextContent(value.toString());
                 parent.appendChild(element);
             } else {
                 Element element = doc.createElement(field.getName());
-                marshal(value, element, doc);
+                Set<Object> childVisited = new HashSet<>(visited);
+                marshal(value, element, doc, childVisited);
                 parent.appendChild(element);
             }
         }
+        
+        visited.remove(object);
     }
 
     private static void setFieldValue(Object obj, String fieldName, String value) throws Exception {
         Field field = getField(obj.getClass(), fieldName);
         if (field == null) return;
         
+        field.setAccessible(true); // Make field accessible
         Class<?> type = field.getType();
+        
         if (type == String.class) {
             field.set(obj, value);
         } else if (type == int.class || type == Integer.class) {
@@ -161,7 +194,9 @@ public class MyXMLDataBinder {
 
     private static Field getField(Class<?> clazz, String fieldName) {
         try {
-            return clazz.getDeclaredField(fieldName);
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field;
         } catch (NoSuchFieldException e) {
             return null;
         }

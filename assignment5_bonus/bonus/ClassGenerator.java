@@ -114,7 +114,7 @@ public class ClassGenerator {
     private Field processElement(Element element, String parentClassName) {
         String fieldName = element.getAttribute("name");
         String typeAttr = element.getAttribute("type");
-        //String minOccurs = element.getAttribute("minOccurs");
+        String minOccurs = element.getAttribute("minOccurs");
         String maxOccurs = element.getAttribute("maxOccurs");
 
         boolean isList = "unbounded".equals(maxOccurs) || 

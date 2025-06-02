@@ -9,12 +9,12 @@ public class TestDots {
             
             // Print loaded data
             System.out.println("Loaded Dots contains " + dots.dot.size() + " points");
-            for (Dot dot : dots.dot) {
+            for (Dots_Dot dot : dots.dot) {
                 System.out.println("Point: (" + dot.x + ", " + dot.y + ")");
             }
             
             // Modify and save data
-            Dot newDot = new Dot();
+            Dots_Dot newDot = new Dots_Dot();
             newDot.x = 100;
             newDot.y = 200;
             dots.dot.add(newDot);
